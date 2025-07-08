@@ -505,3 +505,69 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         -s|--sync)
+            SYNC_MODE=true
+            shift
+            ;;
+        -t|--test)
+            test_config
+            exit $?
+            ;;
+        --ha-status)
+            generate_status_json
+            exit 0
+            ;;
+        --check-tesla)
+            check_tesla_connection
+            exit $?
+            ;;
+        --send-ha-status)
+            send_status_to_ha
+            echo "Status sent to Home Assistant and saved to $STATUS_FILE"
+            exit 0
+            ;;
+        --reboot-after)
+            REBOOT_AFTER=true
+            shift
+            ;;
+        --artist)
+            ARTIST_FILTER="$2"
+            shift 2
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Use -h for help"
+            exit 1
+            ;;
+    esac
+done
+
+# Main execution
+if [ "$CLEANUP_ONLY" = "true" ]; then
+    if cleanup_only; then
+        send_status_to_ha
+        if [ "$REBOOT_AFTER" = "true" ]; then
+            reboot_system
+        fi
+        exit 0
+    else
+        send_status_to_ha
+        exit 1
+    fi
+elif [ "$SYNC_MODE" = "true" ]; then
+    if do_sync "$ARTIST_FILTER"; then
+        send_status_to_ha
+        if [ "$REBOOT_AFTER" = "true" ]; then
+            reboot_system
+        fi
+        exit 0
+    else
+        send_status_to_ha
+        exit 1
+    fi
+else
+    echo "Please specify an operation:"
+    echo "  -s, --sync          Run full music sync"
+    echo "  -c, --cleanup-only  Run cleanup only"
+    echo "  -h, --help          Show help"
+    exit 1
+fi
