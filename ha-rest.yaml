@@ -1,0 +1,24 @@
+# TeslaUSB REST Commands
+# Add these to your Home Assistant rest.yaml file
+# Update YOUR_TESLAUSB_IP with your TeslaUSB device IP address
+
+rest_command:
+  teslausb_sync:
+    url: "http://YOUR_TESLAUSB_IP:9999/sync"
+    method: POST
+    timeout: 30
+  
+  teslausb_stop:
+    url: "http://YOUR_TESLAUSB_IP:9999/stop"
+    method: POST
+    timeout: 10
+  
+  teslausb_cleanup:
+    url: "http://YOUR_TESLAUSB_IP:9999/cleanup"
+    method: POST
+    timeout: 15
+  
+  teslausb_reboot:
+    url: "http://YOUR_TESLAUSB_IP:9999/reboot"
+    method: POST
+    timeout: 10
