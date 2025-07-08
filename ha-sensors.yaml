@@ -1,0 +1,19 @@
+# TeslaUSB REST Sensor
+# Add this to your Home Assistant sensors.yaml file  
+# Update YOUR_TESLAUSB_IP with your TeslaUSB device IP address
+
+sensor:
+  - platform: rest
+    name: "TeslaUSB Music Sync"
+    resource: "http://YOUR_TESLAUSB_IP:9999/status"
+    scan_interval: 30
+    value_template: "{{ value_json.state }}"
+    json_attributes:
+      - tesla_connected
+      - wifi_connected
+      - music_files
+      - total_artists
+      - disk_usage_percent
+      - last_sync
+      - script_version
+      - timestamp
