@@ -1,0 +1,44 @@
+# TeslaUSB Template Sensors
+# Add these to your Home Assistant templates.yaml file
+
+template:
+  - sensor:
+    - name: "TeslaUSB Music Files"
+      state: "{{ state_attr('sensor.teslausb_music_sync', 'music_files') | int(0) }}"
+      unit_of_measurement: "files"
+      icon: "mdi:music"
+
+    - name: "TeslaUSB Artists"
+      state: "{{ state_attr('sensor.teslausb_music_sync', 'total_artists') | int(0) }}"
+      unit_of_measurement: "artists"
+      icon: "mdi:account-music"
+
+    - name: "TeslaUSB Disk Usage"
+      state: "{{ state_attr('sensor.teslausb_music_sync', 'disk_usage_percent') | int(0) }}"
+      unit_of_measurement: "%"
+      icon: "mdi:harddisk"
+
+    - name: "TeslaUSB Connection Status"
+      state: >
+        {% if state_attr('sensor.teslausb_music_sync', 'tesla_connected') %}
+          Tesla Connected
+        {% elif state_attr('sensor.teslausb_music_sync', 'wifi_connected') %}
+          WiFi Only
+        {% else %}
+          Offline
+        {% endif %}
+      icon: >
+        {% if state_attr('sensor.teslausb_music_sync', 'tesla_connected') %}
+          mdi:car-connected
+        {% elif state_attr('sensor.teslausb_music_sync', 'wifi_connected') %}
+          mdi:wifi
+        {% else %}
+          mdi:wifi-off
+        {% endif %}
+
+    - name: "TeslaUSB Safe to Sync"
+      state: >
+        {{ state_attr('sensor.teslausb_music_sync', 'wifi_connected') and
+           state_attr('sensor.teslausb_music_sync', 'tesla_connected') and
+           states('sensor.teslausb_music_sync') != 'syncing' }}
+      icon: "mdi:sync"
