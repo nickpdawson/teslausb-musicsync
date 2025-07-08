@@ -1,0 +1,226 @@
+# TeslaUSB Smart Sync Automation
+# Add this to your Home Assistant automations.yaml file
+# UPDATE THE ENTITY NAMES to match your Tesla integration:
+# - Replace binary_sensor.YOUR_TESLA_* with your Tesla entity names
+# - Replace person.YOUR_NAME with your person entity
+# - Replace binary_sensor.YOUR_TESLA_located_at_home with your location sensor
+# - Replace notify.mobile_app_YOUR_PHONE with your mobile app notify service
+
+- alias: TeslaUSB - Smart Sync Management
+  description: Auto-start sync when charging, auto-stop when leaving
+  triggers:
+    # Trigger 1: Charge cable disconnected (start the leaving timer)
+    - trigger: state
+      entity_id: binary_sensor.YOUR_TESLA_charge_cable  # UPDATE THIS
+      from: "on"
+      to: "off"
+      id: cable_disconnected
+
+    # Trigger 2: Driver door opens (could be leaving signal)
+    - trigger: state
+      entity_id: binary_sensor.YOUR_TESLA_front_driver_door  # UPDATE THIS
+      from: "off"
+      to: "on"
+      id: driver_door_opened
+
+    # Trigger 3: Charge cable connected (arriving/charging)
+    - trigger: state
+      entity_id: binary_sensor.YOUR_TESLA_charge_cable  # UPDATE THIS
+      from: "off"
+      to: "on"
+      id: cable_connected
+
+  conditions:
+    # Tesla must be at home for any sync operations
+    - condition: state
+      entity_id: binary_sensor.YOUR_TESLA_located_at_home  # UPDATE THIS
+      state: "on"
+    # You must be home for any sync operations  
+    - condition: state
+      entity_id: person.YOUR_NAME  # UPDATE THIS
+      state: home
+
+  actions:
+    - choose:
+        # CASE 1: Stop sync when leaving (cable disconnected within 2 minutes of door opening)
+        - conditions:
+            - condition: trigger
+              id: cable_disconnected
+            - condition: state
+              entity_id: binary_sensor.YOUR_TESLA_front_driver_door  # UPDATE THIS
+              state: "on"
+              for:
+                seconds: 1
+          sequence:
+            # Stop the sync
+            - action: rest_command.teslausb_stop
+              data: {}
+            
+            # Wait a moment for status to update
+            - delay:
+                seconds: 3
+            
+            # Send notification with current status
+            - action: notify.mobile_app_YOUR_PHONE  # UPDATE THIS
+              data:
+                title: 🛑 TeslaUSB Sync Stopped
+                message: >
+                  Sync stopped - ready to drive! 🚗
+                  
+                  📊 Status: {{ states('sensor.teslausb_music_sync') }}
+                  🎵 Files: {{ states('sensor.teslausb_music_files') }}
+                  👥 Artists: {{ states('sensor.teslausb_artists') }}
+                  💾 Disk: {{ states('sensor.teslausb_disk_usage') }}%
+                  ⏰ Stopped at {{ now().strftime('%H:%M') }}
+                data:
+                  actions:
+                    - action: "restart_sync"
+                      title: "🔄 Restart Sync"
+                    - action: "reboot_teslausb"
+                      title: "🔄 Reboot TeslaUSB"
+
+        # CASE 2: Stop sync when leaving (door opened within 2 minutes of cable disconnecting)  
+        - conditions:
+            - condition: trigger
+              id: driver_door_opened
+            - condition: template
+              value_template: >
+                {{ (now() - states.binary_sensor.YOUR_TESLA_charge_cable.last_changed).total_seconds() < 120 
+                   and states('binary_sensor.YOUR_TESLA_charge_cable') == 'off' }}  # UPDATE ENTITY NAME
+          sequence:
+            # Stop the sync
+            - action: rest_command.teslausb_stop
+              data: {}
+            
+            # Wait a moment for status to update
+            - delay:
+                seconds: 3
+            
+            # Send notification with current status
+            - action: notify.mobile_app_YOUR_PHONE  # UPDATE THIS
+              data:
+                title: 🛑 TeslaUSB Sync Stopped
+                message: >
+                  Sync stopped - ready to drive! 🚗
+                  
+                  📊 Status: {{ states('sensor.teslausb_music_sync') }}
+                  🎵 Files: {{ states('sensor.teslausb_music_files') }}
+                  👥 Artists: {{ states('sensor.teslausb_artists') }}
+                  💾 Disk: {{ states('sensor.teslausb_disk_usage') }}%
+                  ⏰ Stopped at {{ now().strftime('%H:%M') }}
+                data:
+                  actions:
+                    - action: "restart_sync"
+                      title: "🔄 Restart Sync"
+                    - action: "reboot_teslausb"
+                      title: "🔄 Reboot TeslaUSB"
+
+        # CASE 3: Start sync when charging cable connects
+        - conditions:
+            - condition: trigger
+              id: cable_connected
+          sequence:
+            # Wait a moment for Tesla to settle
+            - delay:
+                seconds: 10
+            
+            # Start the sync
+            - action: rest_command.teslausb_sync
+              data: {}
+            
+            # Wait a moment for status to update
+            - delay:
+                seconds: 5
+            
+            # Send notification with current status
+            - action: notify.mobile_app_YOUR_PHONE  # UPDATE THIS
+              data:
+                title: 🎵 TeslaUSB Sync Started
+                message: >
+                  Syncing music while charging! ⚡
+                  
+                  📊 Status: {{ states('sensor.teslausb_music_sync') }}
+                  🎵 Files: {{ states('sensor.teslausb_music_files') }}
+                  👥 Artists: {{ states('sensor.teslausb_artists') }}
+                  💾 Disk: {{ states('sensor.teslausb_disk_usage') }}%
+                  🔋 Battery: {{ states('sensor.YOUR_TESLA_battery_level') }}%  # UPDATE THIS
+                  ⏰ Started at {{ now().strftime('%H:%M') }}
+                data:
+                  actions:
+                    - action: "stop_sync"
+                      title: "⏹️ Stop Sync"
+                    - action: "view_status"
+                      title: "📊 View Status"
+
+        # CASE 4: Door opened while charging (just a warning, no action)
+        - conditions:
+            - condition: trigger
+              id: driver_door_opened
+            - condition: state
+              entity_id: binary_sensor.YOUR_TESLA_charge_cable  # UPDATE THIS
+              state: "on"
+          sequence:
+            - action: notify.mobile_app_YOUR_PHONE  # UPDATE THIS
+              data:
+                title: 🚗 Tesla Door Opened
+                message: >
+                  Door opened while charging at {{ now().strftime('%H:%M') }}
+                  
+                  🔌 Still charging - sync continues
+                  📊 Status: {{ states('sensor.teslausb_music_sync') }}
+                  🎵 Files: {{ states('sensor.teslausb_music_files') }}
+
+  # Handle notification actions
+    - wait_for_trigger:
+        - trigger: event
+          event_type: mobile_app_notification_action
+          event_data:
+            action: restart_sync
+        - trigger: event
+          event_type: mobile_app_notification_action
+          event_data:
+            action: stop_sync
+        - trigger: event
+          event_type: mobile_app_notification_action
+          event_data:
+            action: reboot_teslausb
+      timeout:
+        minutes: 5
+      continue_on_timeout: true
+
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ wait.trigger.event.data.action == 'restart_sync' }}"
+          sequence:
+            - action: rest_command.teslausb_sync
+              data: {}
+            - action: notify.mobile_app_YOUR_PHONE  # UPDATE THIS
+              data:
+                title: 🔄 Sync Restarted
+                message: "TeslaUSB sync restarted at {{ now().strftime('%H:%M') }}"
+
+        - conditions:
+            - condition: template
+              value_template: "{{ wait.trigger.event.data.action == 'stop_sync' }}"
+          sequence:
+            - action: rest_command.teslausb_stop
+              data: {}
+            - action: notify.mobile_app_YOUR_PHONE  # UPDATE THIS
+              data:
+                title: ⏹️ Sync Stopped
+                message: "TeslaUSB sync stopped at {{ now().strftime('%H:%M') }}"
+
+        - conditions:
+            - condition: template
+              value_template: "{{ wait.trigger.event.data.action == 'reboot_teslausb' }}"
+          sequence:
+            - action: rest_command.teslausb_reboot
+              data: {}
+            - action: notify.mobile_app_YOUR_PHONE  # UPDATE THIS
+              data:
+                title: 🔄 TeslaUSB Rebooting
+                message: "TeslaUSB system rebooting at {{ now().strftime('%H:%M') }}"
+
+  mode: queued
+  max: 3
